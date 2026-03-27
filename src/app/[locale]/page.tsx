@@ -207,11 +207,11 @@ export default async function LocalePage({
         </div>
 
         {/* Not-configured warning */}
-        {!configured ? (
+        {dreams.length === 0 && (
           <p className="mx-auto mt-8 max-w-xl rounded-2xl border border-amber-500/20 bg-amber-500/8 px-5 py-4 text-center text-sm text-amber-700 dark:text-amber-300">
             {copy.notConfigured}
           </p>
-        ) : null}
+        )}
       </section>
 
       {/* ── Footer ── */}
