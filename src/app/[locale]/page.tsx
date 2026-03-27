@@ -4,9 +4,38 @@ import { Globe2 } from "lucide-react";
 import { LanguageToggle } from "@/components/language-toggle";
 import { SubmitForm } from "@/components/submit-form";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { dictionaries, isLocale, sampleDreams } from "@/lib/content";
+import { dictionaries, isLocale, sampleDreams, type Dream } from "@/lib/content";
 import { hasSupabaseEnv } from "@/lib/supabase";
 import { relativeTime } from "@/lib/utils";
+
+export const dynamic = "force-dynamic";
+
+async function getDreams(): Promise<Dream[]> {
+  if (!hasSupabaseEnv()) return sampleDreams;
+  try {
+    const { createClient } = await import("@supabase/supabase-js");
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+    const supabase = createClient(url, key);
+    const { data } = await supabase
+      .from("dreams")
+      .select("id,name,dream,reason,language,created_at")
+      .eq("status", "published")
+      .order("created_at", { ascending: false })
+      .limit(12);
+    if (!data) return sampleDreams;
+    return data.map((d) => ({
+      id: d.id,
+      name: d.name,
+      dream: d.dream,
+      reason: d.reason,
+      language: d.language as "id" | "en",
+      createdAt: d.created_at,
+    }));
+  } catch {
+    return sampleDreams;
+  }
+}
 
 export default async function LocalePage({
   params,
@@ -20,8 +49,7 @@ export default async function LocalePage({
   }
 
   const copy = dictionaries[locale];
-  const configured = hasSupabaseEnv();
-  const dreams = sampleDreams;
+  const dreams = await getDreams();
 
   return (
     <main className="relative flex min-h-screen w-full flex-col">
