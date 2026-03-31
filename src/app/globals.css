@@ -64,6 +64,7 @@ body {
 }
 
 /* Warm atmospheric background layers */
+/* Fixed background gradient — rendered once, not repainted */
 body::before {
   content: "";
   position: fixed;
@@ -73,11 +74,14 @@ body::before {
     radial-gradient(ellipse 60% 40% at 80% 110%, rgba(100, 75, 100, 0.07), transparent 55%);
   pointer-events: none;
   z-index: 0;
+  will-change: transform; /* GPU layer for performance */
 }
 
+/* Remove expensive repaints on main */
 main {
   position: relative;
   z-index: 1;
+  isolation: isolate; /* New stacking context without position change */
 }
 
 /* Cinematic selection */

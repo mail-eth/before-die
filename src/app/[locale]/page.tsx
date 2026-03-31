@@ -8,19 +8,19 @@ import { dictionaries, isLocale, type Dream } from "@/lib/content";
 import { relativeTime } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
+// ISR: revalidate every 60 seconds so new submissions appear without full rebuild
+export const revalidate = 60;
 
-async function getDreams(): Promise<Dream[]> {
+async function getDreams(): Promise<{ items: Dream[]; nextCursor: string | null }> {
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://before-die-app.vercel.app";
   try {
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://before-die-app.vercel.app";
-    const res = await fetch(`${baseUrl}/api/dreams`, {
-      next: { revalidate: 0 },
+    const res = await fetch(`${baseUrl}/api/dreams?limit=12`, {
+      next: { revalidate: 60 },
     });
-    if (!res.ok) return [];
-    const data = await res.json();
-    if (!data.items?.length) return [];
-    return data.items;
+    if (!res.ok) return { items: [], nextCursor: null };
+    return await res.json();
   } catch {
-    return [];
+    return { items: [], nextCursor: null };
   }
 }
 
@@ -36,7 +36,7 @@ export default async function LocalePage({
   }
 
   const copy = dictionaries[locale];
-  const dreams = await getDreams();
+  const { items: dreams } = await getDreams();
 
   return (
     <main className="relative flex min-h-screen w-full flex-col">
