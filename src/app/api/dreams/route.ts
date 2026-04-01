@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { sampleDreams } from "@/lib/content";
 import { getSupabaseAdmin, hasSupabaseEnv } from "@/lib/supabase";
 import { dreamSchema, moderateSubmission } from "@/lib/validation";
 
@@ -52,8 +51,11 @@ function checkRateLimit(ip: string): { allowed: boolean; retryAfter?: number } {
 
 // ── GET ─────────────────────────────────────────────────────────────────────
 export async function GET(request: Request) {
+  // ── No preview fallback ───────────────────────────────────────────────────
+  // When Supabase is not configured, return empty array instead of sampleDreams.
+  // The wall will show its empty-state UI rather than placeholder content.
   if (!hasSupabaseEnv()) {
-    return NextResponse.json({ items: sampleDreams, nextCursor: null, preview: true });
+    return NextResponse.json({ items: [], nextCursor: null, preview: false });
   }
 
   const supabase = getSupabaseAdmin();
@@ -79,8 +81,10 @@ export async function GET(request: Request) {
     const { data, error } = await query as { data: DreamRow[] | null; error: { message?: string } | null };
 
     if (error || data === null) {
+      // DB errors return empty rather than falling back to sample dreams.
+      // This prevents fake data from appearing if Supabase has issues.
       console.error("[before-die] GET /api/dreams error:", error?.message);
-      return NextResponse.json({ items: sampleDreams, nextCursor: null, preview: true });
+      return NextResponse.json({ items: [], nextCursor: null, preview: false });
     }
 
     const hasMore = data.length > limit;
@@ -102,8 +106,10 @@ export async function GET(request: Request) {
       preview: false,
     });
   } catch (err) {
+    // Unexpected errors also return empty rather than falling back to sample dreams.
+    // This keeps behavior consistent and avoids showing fake data on errors.
     console.error("[before-die] GET /api/dreams unexpected error:", err);
-    return NextResponse.json({ items: sampleDreams, nextCursor: null, preview: true });
+    return NextResponse.json({ items: [], nextCursor: null, preview: false });
   }
 }
 
@@ -145,12 +151,18 @@ export async function POST(request: Request) {
       );
     }
 
+    // ── Reject submissions when database is not configured ──────────────────
+    // Previously: returned 200 OK and silently discarded submissions (bad UX).
+    // Now: returns 503 so the form can show a clear error to users.
     if (!hasSupabaseEnv()) {
-      return NextResponse.json({
-        ok: true,
-        status: "published",
-        message: "Preview mode: your submission flow is ready, waiting for database connection.",
-      });
+      return NextResponse.json(
+        {
+          ok: false,
+          status: "unavailable",
+          message: "Backend database is not configured. Submissions are currently disabled.",
+        },
+        { status: 503 },
+      );
     }
 
     const supabase = getSupabaseAdmin();
